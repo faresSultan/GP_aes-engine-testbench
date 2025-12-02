@@ -1,0 +1,1 @@
+The file serves as a placeholder to allow Git to track the presence of this otherwise empty directory.
