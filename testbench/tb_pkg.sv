@@ -41,8 +41,8 @@ package tb_pkg;
         bit   [7:0]       user_key_in;
         logic [31:0]      user_data_out;
         logic [31:0]      store_key_memory; 
-        randc bit [127:0] data_in_unordered = 128'h00112233445566778899AABBCCDDEEFF;
-        randc bit [127:0] key_in_unordered  = 128'h000102030405060708090A0B0C0D0E0F;
+        randc bit [127:0] data_in_unordered;
+        randc bit [127:0] key_in_unordered ;
 
         bit [127:0] data_in_ordered = reorder_bytes(data_in_unordered);
         bit [127:0] key_in_ordered =  reorder_bytes(key_in_unordered);
@@ -210,11 +210,16 @@ package tb_pkg;
             $display("Run_phase, [Monitor]");
             forever begin
                 seq_item = my_sequence_item::type_id::create("seq_item");
-                #1;
-                $display("Monitor sampled: out = [%032h]",vin_mon.out);
-                seq_item.out = vin_mon.out;
-                seq_item.in  = vin_mon.in;
-                seq_item.key = vin_mon.key;
+                @(negedge vin_mon.clk);
+                seq_item.rst              = vin_mon.rst;
+                seq_item.en_signal        = vin_mon.en_signal;
+                seq_item.enc_dec          = vin_mon.enc_dec;
+                seq_item.key_stored       = vin_mon.key_stored;
+                seq_item.key_changed      = vin_mon.key_changed;
+                seq_item.user_data_in     = vin_mon.user_data_in;
+                seq_item.user_key_in      = vin_mon.user_key_in;
+                seq_item.user_data_out    = vin_mon.user_data_out;
+                seq_item.store_key_memory = vin_mon.store_key_memory;
                 my_analysis_port.write(seq_item);
             end
             
