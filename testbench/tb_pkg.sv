@@ -1,5 +1,5 @@
 
-
+`timescale 1ns/100ps
 interface AES_intf (input bit clk);
     bit          rst;
     bit          en_signal;
@@ -74,7 +74,7 @@ package tb_pkg;
             $display("RST=%0b EN=%0b ENC_DEC=%0b key_stored=%0b key_changed=%0b", rst, en_signal,enc_dec,key_stored,key_changed);    
             $display("data_in=[%032H] key_in=[%032H]",data_in_ordered,key_in_ordered);
             $display("user_data_in=[%0H] user_key_in=[%0H]",user_data_in,user_key_in);
-            $display("user_data_out=[%0H]",user_data_out);
+            $display("user_data_out=[%04H]",user_data_out);
             $display("------------------------------------");
         endfunction        
     endclass
@@ -125,7 +125,7 @@ package tb_pkg;
                 start_item(seq_item); 
                     seq_item.user_data_in = seq_item.data_in_ordered[127 - i*8 -: 8];
                     seq_item.user_key_in  = seq_item.key_in_ordered [127 - i*8 -: 8];
-                    seq_item.display("seq_1");
+                    seq_item.display($sformatf("seq_1[%0d]",i));
                 finish_item(seq_item);
             end                   
         endtask
@@ -292,7 +292,7 @@ package tb_pkg;
 
             if(!uvm_config_db #(virtual AES_intf)::get(this,"","vif_3",vin_3))
                 `uvm_fatal(get_full_name(),"Couldn't get the virtual interface")
-            uvm_config_db #(virtual AES_intf)::set(this,"*","vif_4",vin_3); // how to make * only drvr and mon??
+            uvm_config_db #(virtual AES_intf)::set(this,"*","vif_4",vin_3);
 
             drvr = my_driver::type_id::create("drvr",this);
             mon  = my_monitor::type_id::create("mon",this);
@@ -317,9 +317,11 @@ package tb_pkg;
 // =============================== Scoreboard ===============================
     class my_scoreboard extends uvm_scoreboard;
         `uvm_component_utils(my_scoreboard)
+        typedef logic[31:0] word;
         my_sequence_item seq_item;
         logic[127:0] exp_out;
         integer fd;
+        word result_fifo [$:3];
         uvm_analysis_imp #(my_sequence_item,my_scoreboard) AI;
 
         function new(string name = "my_scoreboard", uvm_component parent = null);
@@ -328,8 +330,8 @@ package tb_pkg;
 
         function void build_phase(uvm_phase phase);
             super.build_phase(phase);
-            seq_item = my_sequence_item::type_id::create("seq_item");
-            AI       = new("AI",this);
+            seq_item          = my_sequence_item::type_id::create("seq_item");
+            AI                = new("AI",this);
             $display("Build_phase, [scoreboard]");            
         endfunction
 
@@ -345,6 +347,7 @@ package tb_pkg;
 
         task write(my_sequence_item t);
             seq_item.display("scoreboard");
+            result_fifo.push_back(seq_item.user_data_out);
             // $display("scoreboard: in = [%032h], key = [%032h]",t.in,t.key);
 
             // // NOTE: MAKE SURE THE PATH TO CODE AND FILES ARE RIGHT 

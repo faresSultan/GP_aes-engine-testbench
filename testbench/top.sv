@@ -1,3 +1,4 @@
+`timescale 1ns/100ps
 module top_level();
     import uvm_pkg::*;
     import tb_pkg::*;
