@@ -11,17 +11,30 @@ interface AES_intf (input bit clk);
     logic [31:0] user_data_out;
     logic [31:0] store_key_memory;
 
+    clocking drvr_cb @(posedge clk);
+        default output #1step;
+        output rst,en_signal,enc_dec,key_stored,key_changed,user_data_in,user_key_in;
+    endclocking
+
+    clocking mon_cb @(posedge clk);
+        default input #0;
+        input clk,rst,en_signal,enc_dec,key_stored,key_changed,user_data_in,user_key_in,
+        user_data_out,store_key_memory;
+    endclocking
+
     modport DUT(
         input clk,rst,en_signal,enc_dec,key_stored,key_changed,user_data_in,user_key_in,
         output user_data_out,store_key_memory
     );
 
-    modport tb(
+    modport drvr_mp(
+        clocking drvr_cb,
         output rst,en_signal,enc_dec,key_stored,key_changed,user_data_in,user_key_in,
         input  clk,user_data_out,store_key_memory
     );
 
-    modport mon(
+    modport mon_mp(
+        clocking mon_cb,
         input clk,rst,en_signal,enc_dec,key_stored,key_changed,user_data_in,user_key_in,
         input user_data_out,store_key_memory
     );
@@ -104,14 +117,17 @@ package tb_pkg;
                 en_signal == 1;
                 data_in_unordered == 128'h00112233445566778899AABBCCDDEEFF;
                 key_in_unordered  == 128'h000102030405060708090A0B0C0D0E0F;
-            }); 
+            });
+            seq_item.data_in_ordered = seq_item.reorder_bytes(seq_item.data_in_unordered);
+            seq_item.key_in_ordered = seq_item.reorder_bytes( seq_item.key_in_unordered);
+            seq_item.display("sequence_1"); 
             for (int i = 0; i<16 ; i++) begin
                 start_item(seq_item); 
                     seq_item.user_data_in = seq_item.data_in_ordered[127 - i*8 -: 8];
                     seq_item.user_key_in  = seq_item.key_in_ordered [127 - i*8 -: 8];
                     seq_item.display("seq_1");
                 finish_item(seq_item);
-            end                  
+            end                   
         endtask
     endclass
 
@@ -143,7 +159,7 @@ package tb_pkg;
     class my_driver extends uvm_driver #(my_sequence_item);
         `uvm_component_utils(my_driver)
         my_sequence_item seq_item;
-        virtual AES_intf.tb vin_drvr;
+        virtual AES_intf.drvr_mp vin_drvr;
         
         function new(string name = "my_driver", uvm_component parent = null);
             super.new(name,parent);
@@ -169,10 +185,17 @@ package tb_pkg;
             $display("Run_phase, [Driver]");
             forever begin
                 seq_item_port.get_next_item(seq_item);
-                    vin_drvr.in = seq_item.in;
-                    vin_drvr.key = seq_item.key;       
-                    $display("Interface Data_in = [%032h], key = [%032h]",vin_drvr.in,vin_drvr.key);
-                    #1;
+                    seq_item.display("Driver");
+                    @(posedge vin_drvr.clk);
+                    vin_drvr.rst              <= seq_item.rst;   
+                    vin_drvr.en_signal        <= seq_item.en_signal;   
+                    vin_drvr.enc_dec          <= seq_item.enc_dec;   
+                    vin_drvr.key_stored       <= seq_item.key_stored;   
+                    vin_drvr.key_changed      <= seq_item.key_changed;   
+                    vin_drvr.user_data_in     <= seq_item.user_data_in;   
+                    vin_drvr.user_key_in      <= seq_item.user_key_in;   
+                    vin_drvr.user_data_out    <= seq_item.user_data_out;   
+                    vin_drvr.store_key_memory <= seq_item.store_key_memory;
                 seq_item_port.item_done();       
             end
             
@@ -183,7 +206,7 @@ package tb_pkg;
     class my_monitor extends uvm_monitor;
         `uvm_component_utils(my_monitor)
         my_sequence_item seq_item;
-        virtual AES_intf.mon vin_mon;
+        virtual AES_intf.mon_mp vin_mon;
         uvm_analysis_port#(my_sequence_item) my_analysis_port;
 
         function new(string name = "my_monitor", uvm_component parent = null);
@@ -210,7 +233,7 @@ package tb_pkg;
             $display("Run_phase, [Monitor]");
             forever begin
                 seq_item = my_sequence_item::type_id::create("seq_item");
-                @(negedge vin_mon.clk);
+                @(posedge vin_mon.clk);
                 seq_item.rst              = vin_mon.rst;
                 seq_item.en_signal        = vin_mon.en_signal;
                 seq_item.enc_dec          = vin_mon.enc_dec;
@@ -220,6 +243,7 @@ package tb_pkg;
                 seq_item.user_key_in      = vin_mon.user_key_in;
                 seq_item.user_data_out    = vin_mon.user_data_out;
                 seq_item.store_key_memory = vin_mon.store_key_memory;
+                seq_item.display("monitor");
                 my_analysis_port.write(seq_item);
             end
             
@@ -320,6 +344,7 @@ package tb_pkg;
         endtask
 
         task write(my_sequence_item t);
+            seq_item.display("scoreboard");
             // $display("scoreboard: in = [%032h], key = [%032h]",t.in,t.key);
 
             // // NOTE: MAKE SURE THE PATH TO CODE AND FILES ARE RIGHT 
@@ -369,7 +394,7 @@ package tb_pkg;
         // endgroup
         function new(string name = "my_subscriber", uvm_component parent = null);
             super.new(name,parent);
-            covGrp = new();
+            // covGrp = new();
         endfunction
 
         function void build_phase(uvm_phase phase);
@@ -389,6 +414,7 @@ package tb_pkg;
         endtask
         
         function void write(my_sequence_item t);
+            seq_item.display("subscriber");
             // $display("subscriber: in=[%032h],key=[%032h],out=[%032h]",t.in,t.key,t.out);
             // seq_item = t;
             // covGrp.sample();
