@@ -320,6 +320,7 @@ package tb_pkg;
         typedef logic[31:0] word;
         my_sequence_item seq_item;
         logic[127:0] exp_out;
+        bit check_state;
         integer fd;
         word result_fifo [$:3];
         uvm_analysis_imp #(my_sequence_item,my_scoreboard) AI;
@@ -347,8 +348,7 @@ package tb_pkg;
 
         task write(my_sequence_item t);
             seq_item.display("scoreboard");
-            result_fifo.push_back(seq_item.user_data_out);
-            // $display("scoreboard: in = [%032h], key = [%032h]",t.in,t.key);
+            //result_fifo.push_back(seq_item.user_data_out);
 
             // // NOTE: MAKE SURE THE PATH TO CODE AND FILES ARE RIGHT 
             // // TIP : RUN THE PYTHON CODE ON TERMINAL FROM THE DIRECTORY 
@@ -381,6 +381,26 @@ package tb_pkg;
             // else 
             //     $error("FAILURE , OUT IS %h and EXP OUT IS %h ", t.out , exp_out); 
         endtask
+
+        virtual function void phase_ready_to_end(uvm_phase phase);
+            if(phase.is(uvm_run_phase::get())) begin
+                if (!check_state) begin
+                phase.raise_objection(this,"test not finished yet");
+                fork
+                    begin
+                        `uvm_info("PRTE","Phase Ready Testing",UVM_LOW)
+                        wait_for_ok_to_finish();
+                        phase.drop_objection(this,"test ready to finish");    
+                    end
+                join_none                    
+                end
+            end
+        endfunction
+
+        task wait_for_ok_to_finish();
+            #50;
+            check_state = 1'b1;
+        endtask 
     endclass
 
 // =============================== Subscriber ===============================
