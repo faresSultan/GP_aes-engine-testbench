@@ -102,6 +102,8 @@ package tb_pkg;
     class my_sequence1 extends uvm_sequence #(my_sequence_item);
         `uvm_object_utils(my_sequence1)
         my_sequence_item seq_item;
+        integer plain_text_file;
+        integer key_file;
 
         function new(string name = "my_sequence1");
             super.new(name);
@@ -109,6 +111,11 @@ package tb_pkg;
 
         task pre_body;
             seq_item = my_sequence_item::type_id::create("seq_item");
+            // Open refrence files to be copy the test vector for the ref model
+             plain_text_file = $fopen("./testbench/data_in.txt","w");
+             key_file        = $fopen("./testbench/key_in.txt" ,"w");
+
+
         endtask
 
         task body;
@@ -118,6 +125,15 @@ package tb_pkg;
                 data_in_unordered == 128'h00112233445566778899AABBCCDDEEFF;
                 key_in_unordered  == 128'h000102030405060708090A0B0C0D0E0F;
             });
+
+
+            // Writing to files :data -> data_in.txt ,key -> key.txt
+            $fdisplay(plain_text_file,"%h",seq_item.data_in_unordered);
+                $fclose(plain_text_file);
+
+            $fdisplay(key_file,"%h",seq_item.key_in_unordered);
+                $fclose(key_file);
+
             seq_item.data_in_ordered = seq_item.reorder_bytes(seq_item.data_in_unordered);
             seq_item.key_in_ordered = seq_item.reorder_bytes( seq_item.key_in_unordered);
             seq_item.display("sequence_1"); 
@@ -347,6 +363,7 @@ package tb_pkg;
         endtask
 
         task write(my_sequence_item t);
+            seq_item = t;
             seq_item.display("scoreboard");
             //result_fifo.push_back(seq_item.user_data_out);
 
@@ -437,9 +454,8 @@ package tb_pkg;
         endtask
         
         function void write(my_sequence_item t);
-            seq_item.display("subscriber");
-            // $display("subscriber: in=[%032h],key=[%032h],out=[%032h]",t.in,t.key,t.out);
-            // seq_item = t;
+            seq_item = t;
+            //seq_item.display("subscriber");
             // covGrp.sample();
         endfunction
     endclass
