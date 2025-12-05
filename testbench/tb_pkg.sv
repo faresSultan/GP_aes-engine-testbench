@@ -379,8 +379,7 @@ package tb_pkg;
                 if(round == 10) begin
                     check_results();
                 end
-            end
-            
+            end 
         endtask
 
         task fill_ref_matrix();
@@ -400,24 +399,48 @@ package tb_pkg;
         task get_round_output();
             static int clk_count;
             $display("clk_count = %0d",clk_count);
-            if(clk_count == 16) begin
-                result_fifo.push_back(seq_item.user_data_out);
-                if(result_fifo.size() == 4) begin
-                    rounds_output_matrix[round] = {
-                        result_fifo[0],
-                        result_fifo[1],
-                        result_fifo[2],
-                        result_fifo[3]
-                    };
-                    $display("Round_output_matrix[%0d] = %h",round,rounds_output_matrix[round]);
-                    result_fifo.delete();
-                    round = (round + 1) % 11;
-                    clk_count = 0;
-                end 
+            
+            if (round < 9) begin
+                if(clk_count == 16) begin
+                    result_fifo.push_back(seq_item.user_data_out);
+                    if(result_fifo.size() == 4) begin
+                        rounds_output_matrix[round] = {
+                            result_fifo[0],
+                            result_fifo[1],
+                            result_fifo[2],
+                            result_fifo[3]
+                        };
+                        $display("Round_output_matrix[%0d] = %h",round,rounds_output_matrix[round]);
+                        result_fifo.delete();
+                        round = (round + 1) % 11;
+                        clk_count = 0;
+                    end 
+                end
+                else begin
+                    clk_count = (clk_count + 1)%17;
+                end                
             end
-            else begin
-                clk_count = (clk_count + 1)%17;
+            else if (round == 9) begin // output (chipher) should be stored in fifo from cycle 32 - 36 
+                if(clk_count == 32) begin
+                    result_fifo.push_back(seq_item.user_data_out);
+                    if(result_fifo.size() == 4) begin
+                        rounds_output_matrix[round] = {
+                            result_fifo[0],
+                            result_fifo[1],
+                            result_fifo[2],
+                            result_fifo[3]
+                        };
+                        $display("Round_output_matrix[%0d] = %h",round,rounds_output_matrix[round]);
+                        result_fifo.delete();
+                        round = (round + 1) % 11;
+                        clk_count = 0;
+                    end 
+                end
+                else begin
+                    clk_count = (clk_count + 1)%33;
+                end  
             end
+
         endtask
 
         task check_results();

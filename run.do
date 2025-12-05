@@ -24,4 +24,5 @@ sim:/top_level/in1/user_key_in \
 sim:/top_level/in1/user_data_out \
 add wave -position insertpoint  \
 sim:/tb_pkg::my_scoreboard::round
+
 run -all
