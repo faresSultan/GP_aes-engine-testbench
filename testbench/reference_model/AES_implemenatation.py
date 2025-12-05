@@ -114,7 +114,7 @@ def key_schedule(key, print_keys=False):
     
     return [round_keys[i:i + 4] for i in range(0, 44, 4)]
 
-def write_state_to_file(state, path="../data_out.txt"):
+def write_state_to_file(state, path="testbench/data_out.txt"):
     # Flatten 4×4 matrix → bytes
     output_bytes = bytes(sum(state, []))
     with open(path, "a") as file:
@@ -125,8 +125,8 @@ def aes_encrypt(plaintext, key):
     round_keys = key_schedule(key)
     
     state = add_round_key(state, round_keys[0])
-    
-    open("../data_out.txt", "w").close()   # clears data_out.txt file
+
+    open("testbench/data_out.txt", "w").close()   # clears data_out.txt file
     for round in range(1, 10):
         state = sub_bytes(state)
         state = shift_rows(state)
@@ -139,8 +139,8 @@ def aes_encrypt(plaintext, key):
     state = add_round_key(state, round_keys[10])
     write_state_to_file(state)      # append the final round output to the file data.txt, now the file have the outputs of each round line by line
 
-def read_inputs_and_encrypt(plaintext_path="../data_in.txt",
-                            key_path="../key_in.txt"):
+def read_inputs_and_encrypt(plaintext_path="testbench/data_in.txt",
+                            key_path="testbench/key_in.txt"):
     """
     Reads plaintext hex from one file and key hex from another file,
     converts both to bytes, and runs AES encryption.

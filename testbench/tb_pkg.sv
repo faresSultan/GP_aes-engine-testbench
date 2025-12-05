@@ -335,7 +335,9 @@ package tb_pkg;
         `uvm_component_utils(my_scoreboard)
         typedef logic[31:0] word;
         my_sequence_item seq_item;
-        logic[127:0] exp_out;
+        logic[127:0] ref_matrix           [0:9];
+        logic[127:0] rounds_output_matrix [0:9];
+        static int round;
         bit check_state;
         integer fd;
         word result_fifo [$:3];
@@ -363,40 +365,66 @@ package tb_pkg;
         endtask
 
         task write(my_sequence_item t);
-            seq_item = t;
-            seq_item.display("scoreboard");
-            //result_fifo.push_back(seq_item.user_data_out);
+            if($realtime >=7) begin
+                seq_item = t;
+                seq_item.display("scoreboard");
+                $display("Round = %0d",round);
+                if(round == 0) begin
+                    fill_ref_matrix();
+                end
 
-            // // NOTE: MAKE SURE THE PATH TO CODE AND FILES ARE RIGHT 
-            // // TIP : RUN THE PYTHON CODE ON TERMINAL FROM THE DIRECTORY 
-            // //       OF THE UVM SCOREBOARD TO CHECK NO ERRORS
+                get_round_output();
 
-            // // Open file "key.txt" for writing
-            // fd = $fopen("./test_bench/key.txt","w");
+                if(round == 9) begin
+                    check_results();
+                end
+            end
+            
+        endtask
 
-            // // Writing to file : First line writing the data , Second line writing the key
-            // $fdisplay(fd,"%h \n%h",t.in , t.key);
+        task fill_ref_matrix();
+            // "$system" task to run the python code and interact with SCOREBOARD through I/O files
+            $system($sformatf("python3 testbench/reference_model/AES_implemenatation.py"));
 
-            // // Close the "key.txt"
-            // $fclose(fd);
+            fd = $fopen("./testbench/data_out.txt","r");
+            
+            for (int i = 0; i < 10; i++) begin
+                $fscanf(fd,"%h",ref_matrix[i]);
+                $display("Ref_matrix[%0d] = %h",i,ref_matrix[i]);
+            end
+        
+            $fclose(fd);
+        endtask
 
-            // // "$system" task to run the python code and interact with SCOREBOARD through I/O files
-            // $system($sformatf("python3 ./test_bench/ref.py"));
+        task get_round_output();
+            static int clk_count;
+            $display("clk_count = %0d",clk_count);
+            if(clk_count == 16) begin
+                result_fifo.push_back(seq_item.user_data_out);
+                if(result_fifo.size() == 4) begin
+                    rounds_output_matrix[round] = {
+                        result_fifo[0],
+                        result_fifo[1],
+                        result_fifo[2],
+                        result_fifo[3]
+                    };
+                    $display("Round_output_matrix[%0d] = %h",round,rounds_output_matrix[round]);
+                    result_fifo.delete();
+                    round = (round + 1) % 10;
+                    clk_count = 0;
+                end 
+            end
+            else begin
+                clk_count = (clk_count + 1)%17;
+            end
+        endtask
 
-            // // Open file "output.txt" for reading
-            // fd = $fopen("./test_bench/output.txt","r");
-
-            // // Reading the output of python code through "output.txt" file
-            // $fscanf(fd,"%h",exp_out);
-
-            // // Close the "output.txt"
-            // $fclose(fd);
-
-            // // COMPARE THE ACTUAL OUTPUT AND EXPECTED OUTPUT
-            // if(exp_out == t.out)
-            //     $display("SUCCESS , OUT IS %h and EXP OUT IS %h ", t.out , exp_out);
-            // else 
-            //     $error("FAILURE , OUT IS %h and EXP OUT IS %h ", t.out , exp_out); 
+        task check_results();
+            for(int i = 0; i <10 ; i++) begin
+                if(ref_matrix[i] !== rounds_output_matrix[i]) begin
+                    `uvm_error(get_type_name (),$sformatf("Mismatch at index %0d: ref = %h, out = %h", i, ref_matrix[i], rounds_output_matrix[i]));
+                end
+            end
         endtask
 
         virtual function void phase_ready_to_end(uvm_phase phase);
