@@ -259,7 +259,7 @@ package tb_pkg;
                 seq_item.user_key_in      = vin_mon.user_key_in;
                 seq_item.user_data_out    = vin_mon.user_data_out;
                 seq_item.store_key_memory = vin_mon.store_key_memory;
-                seq_item.display("monitor");
+                //seq_item.display("monitor");
                 my_analysis_port.write(seq_item);
             end
             
@@ -338,6 +338,7 @@ package tb_pkg;
         logic[127:0] ref_matrix           [0:9];
         logic[127:0] rounds_output_matrix [0:9];
         static int round;
+        int correct_count;
         bit check_state;
         integer fd;
         word result_fifo [$:3];
@@ -375,7 +376,7 @@ package tb_pkg;
 
                 get_round_output();
 
-                if(round == 9) begin
+                if(round == 10) begin
                     check_results();
                 end
             end
@@ -410,7 +411,7 @@ package tb_pkg;
                     };
                     $display("Round_output_matrix[%0d] = %h",round,rounds_output_matrix[round]);
                     result_fifo.delete();
-                    round = (round + 1) % 10;
+                    round = (round + 1) % 11;
                     clk_count = 0;
                 end 
             end
@@ -423,6 +424,10 @@ package tb_pkg;
             for(int i = 0; i <10 ; i++) begin
                 if(ref_matrix[i] !== rounds_output_matrix[i]) begin
                     `uvm_error(get_type_name (),$sformatf("Mismatch at index %0d: ref = %h, out = %h", i, ref_matrix[i], rounds_output_matrix[i]));
+                end
+                else begin
+                    `uvm_info(get_type_name (),$sformatf("Mismatch at index %0d: ref = %h, out = %h", i, ref_matrix[i], rounds_output_matrix[i]),UVM_HIGH);
+                    correct_count++;
                 end
             end
         endtask
@@ -443,7 +448,9 @@ package tb_pkg;
         endfunction
 
         task wait_for_ok_to_finish();
-            #50;
+            while (correct_count <10) begin
+                #2;
+            end 
             check_state = 1'b1;
         endtask 
     endclass
